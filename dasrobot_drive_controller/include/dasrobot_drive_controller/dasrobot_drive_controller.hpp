@@ -1,0 +1,51 @@
+#pragma once
+
+#include <array>
+#include <string>
+#include <vector>
+#include <fcntl.h>      
+#include <unistd.h>     
+#include <termios.h>    
+#include <cstring>
+#include <rclcpp/rclcpp.hpp>
+#include <hardware_interface/system_interface.hpp>
+#include <hardware_interface/types/hardware_interface_type_values.hpp>
+
+namespace dasrobot_drive_controller {
+    class DasrobotDriveController : public hardware_interface::SystemInterface {
+    public:
+
+        DasrobotDriveController() = default;
+        virtual ~DasrobotDriveController();
+
+        hardware_interface::CallbackReturn on_init(const hardware_interface::HardwareInfo & info) override;
+        std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
+        std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
+        hardware_interface::return_type read(const rclcpp::Time &, const rclcpp::Duration &) override;
+        hardware_interface::return_type write(const rclcpp::Time &, const rclcpp::Duration &) override;
+
+    private:
+
+        int serial_fd_ = -1;
+        int baudrate_ = 115200;
+        std::string serial_port_ = "/dev/ttyUSB0";
+        
+        static constexpr int JOINTS_COUNT_ = 6;
+        double wheel_radius_ = 0.1;
+        double wheel_separation_horizontal_ = 0.4;
+        double wheel_separation_vertical_ = 0.5;
+        double encoder_ppr_ = 988.0;
+        double counts_to_rad_ = 2.0 * M_PI / encoder_ppr_;
+
+        hardware_interface::HardwareInfo hardware_info_;
+        std::array<long, JOINTS_COUNT_> previous_encoders_value_{};
+        std::array<double, JOINTS_COUNT_> hw_positions_{};
+        std::array<double, JOINTS_COUNT_> hw_velocities_{};
+        std::array<double, JOINTS_COUNT_> cmd_velocities_{};
+
+        bool open_serial();
+        void close_serial();
+        bool serial_write(const std::string& data);
+        std::string serial_readline(int timeout_ms = 10);         
+    };        
+} // namespace dasrobot_drive_controller

@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<library path="dasrobot_drive_controller">
+  <class 
+    name="dasrobot_drive_controller/DasrobotDriveController"
+    type="dasrobot_drive_controller::DasrobotDriveController"
+    base_class_type="hardware_interface::SystemInterface">
+    
+    <description>
+      ROS2 Hardware Interface for Dasrobot Mecanum Drive Controller
+      Communicates via serial port with encoder feedback and velocity commands
+    </description>
+  </class>
+</library>
