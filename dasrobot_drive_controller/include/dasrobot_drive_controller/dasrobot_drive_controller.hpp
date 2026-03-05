@@ -28,24 +28,28 @@ namespace dasrobot_drive_controller {
 
         int serial_fd_ = -1;
         int baudrate_ = 115200;
-        std::string serial_port_ = "/dev/ttyUSB0";
+        std::string serial_port_name_ = "/dev/ttyUSB0";
         
-        static constexpr int JOINTS_COUNT_ = 6;
-        double wheel_radius_ = 0.1;
-        double wheel_separation_horizontal_ = 0.4;
-        double wheel_separation_vertical_ = 0.5;
         double encoder_ppr_ = 988.0;
+        size_t wheel_count_ = 1;
+        double wheel_radius_ = 0.1;
+        double wheel_separation_x_ = 0.5;
+        double wheel_separation_y_ = 0.4;
+
+        static constexpr int MAX_WHEEL_COUNT_ = 6;
+
         double counts_to_rad_ = 2.0 * M_PI / encoder_ppr_;
 
         hardware_interface::HardwareInfo hardware_info_;
-        std::array<long, JOINTS_COUNT_> previous_encoders_value_{};
-        std::array<double, JOINTS_COUNT_> hw_positions_{};
-        std::array<double, JOINTS_COUNT_> hw_velocities_{};
-        std::array<double, JOINTS_COUNT_> cmd_velocities_{};
+        std::array<long, MAX_WHEEL_COUNT_> previous_encoders_value_{};
+        std::array<double, MAX_WHEEL_COUNT_> hw_positions_{};
+        std::array<double, MAX_WHEEL_COUNT_> hw_velocities_{};
+        std::array<double, MAX_WHEEL_COUNT_> cmd_velocities_{};
 
         bool open_serial();
         void close_serial();
         bool serial_write(const std::string& data);
-        std::string serial_readline(int timeout_ms = 10);         
+        std::string serial_readline(int timeout_ms = 10);  
+              
     };        
 } // namespace dasrobot_drive_controller

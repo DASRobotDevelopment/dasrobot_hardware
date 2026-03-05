@@ -41,8 +41,8 @@ controller_manager:
         serial_port: "/dev/ttyUSB0"
         baudrate: "115200"
         wheel_radius: 0.1
-        wheel_separation_horizontal: 0.4
-        wheel_separation_vertical: 0.5
+        wheel_separation_y: 0.4
+        wheel_separation_x: 0.5
         encoder_ppr: 988
 ```
 
@@ -82,8 +82,8 @@ ros2 launch your_robot_bringup robot_bringup.launch.py
 | `serial_port` | string | `/dev/ttyUSB0` | Порт микроконтроллера |
 | `baudrate` | int | `115200` | Скорость порта |
 | `wheel_radius` | double | `0.1` | Радиус колеса (м) |
-| `wheel_separation_horizontal` | double | `0.4` | Расстояние L-R (м) |
-| `wheel_separation_vertical` | double | `0.5` | Расстояние F-B (м) |
+| `wheel_separation_y` | double | `0.4` | Расстояние L-R (м) |
+| `wheel_separation_x` | double | `0.5` | Расстояние F-B (м) |
 | `encoder_ppr` | double | `988` | Импульсов на оборот |
 
 ## Отладка

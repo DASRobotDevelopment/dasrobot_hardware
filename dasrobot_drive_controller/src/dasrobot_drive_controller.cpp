@@ -12,19 +12,27 @@ hardware_interface::CallbackReturn DasrobotDriveController::on_init(const hardwa
 
     // Проверяем наличие обязательных параметров
     const auto& params = hardware_info_.hardware_parameters;
-    if (params.find("serial_port") == params.end()) {
-        RCLCPP_FATAL(rclcpp::get_logger("DasrobotDriveController"), "Missing required parameter 'serial_port'");
+    if (params.find("serial_port_name") == params.end()) {
+        RCLCPP_FATAL(rclcpp::get_logger("DasrobotDriveController"), "Missing required parameter 'serial_port_name'");
         return hardware_interface::CallbackReturn::ERROR;
     }
 
+    // RCLCPP_INFO(rclcpp::get_logger("DasrobotDriveController"), "ALL PARAMS:");
+    // for (const auto& param : params) {
+    //     RCLCPP_INFO(rclcpp::get_logger("DasrobotDriveController"), "  %s = '%s'", 
+    //                 param.first.c_str(), param.second.c_str());
+    // }
+
     // Читаем параметры из URDF с обработкой ошибок
     try {
-        serial_port_ = params.at("serial_port");
-        baudrate_ = std::stoi(params.at("baudrate"));
-        wheel_radius_ = std::stod(params.at("wheel_radius"));
-        wheel_separation_horizontal_ = std::stod(params.at("wheel_separation_horizontal"));
-        wheel_separation_vertical_ = std::stod(params.at("wheel_separation_vertical"));
         encoder_ppr_ = std::stod(params.at("encoder_ppr"));
+        baudrate_ = std::stoi(params.at("baudrate"));
+        serial_port_name_ = params.at("serial_port_name");
+        
+        wheel_count_ = std::stoi(params.at("wheel_count"));
+        wheel_radius_ = std::stod(params.at("wheel_radius"));
+        wheel_separation_x_ = std::stod(params.at("wheel_separation_x"));
+        wheel_separation_y_ = std::stod(params.at("wheel_separation_y"));
     } catch (const std::exception& e) {
         RCLCPP_FATAL(rclcpp::get_logger("DasrobotDriveController"), 
                     "Failed to parse hardware parameters: %s", e.what());
@@ -34,18 +42,18 @@ hardware_interface::CallbackReturn DasrobotDriveController::on_init(const hardwa
     counts_to_rad_ = 2.0 * M_PI / encoder_ppr_;
 
     RCLCPP_INFO(rclcpp::get_logger("DasrobotDriveController"), 
-        "Mecanum Config:\n"
+        "  Plugin Config:\n"
         "  Port: %s\n"
         "  Baudrate: %d\n"
         "  Wheel radius: %.3f m\n"
-        "  Separation H (L-R): %.3f m\n"
-        "  Separation V (F-B): %.3f m\n"
+        "  Separation X (F-B): %.3f m\n"
+        "  Separation Y (L-R): %.3f m\n"
         "  Encoder PPR: %.0f",
-        serial_port_.c_str(), baudrate_, wheel_radius_, 
-        wheel_separation_horizontal_, wheel_separation_vertical_, encoder_ppr_);
+        serial_port_name_.c_str(), baudrate_, wheel_radius_, 
+        wheel_separation_x_, wheel_separation_y_, encoder_ppr_);
 
     if (!open_serial()) {
-        RCLCPP_FATAL(rclcpp::get_logger("DasrobotDriveController"), "Failed to open serial port: %s", serial_port_.c_str());
+        RCLCPP_FATAL(rclcpp::get_logger("DasrobotDriveController"), "Failed to open serial port: %s", serial_port_name_.c_str());
         return hardware_interface::CallbackReturn::ERROR;
     }
 
@@ -56,7 +64,7 @@ hardware_interface::CallbackReturn DasrobotDriveController::on_init(const hardwa
 std::vector<hardware_interface::StateInterface> DasrobotDriveController::export_state_interfaces() {
     std::vector<hardware_interface::StateInterface> state_interfaces;
     
-    for (size_t i = 0; i < JOINTS_COUNT_; ++i) {
+    for (size_t i = 0; i < wheel_count_; ++i) {
         if (i >= hardware_info_.joints.size()) {
             RCLCPP_FATAL(rclcpp::get_logger("DasrobotDriveController"), 
                         "Joint %zu not found in URDF", i);
@@ -74,7 +82,7 @@ std::vector<hardware_interface::StateInterface> DasrobotDriveController::export_
 std::vector<hardware_interface::CommandInterface> DasrobotDriveController::export_command_interfaces() {
     std::vector<hardware_interface::CommandInterface> command_interfaces;
 
-    for (size_t i = 0; i < JOINTS_COUNT_; ++i) {
+    for (size_t i = 0; i < wheel_count_; ++i) {
         if (i >= hardware_info_.joints.size()) break;
         command_interfaces.emplace_back(hardware_interface::CommandInterface(
             hardware_info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &cmd_velocities_[i]));
@@ -98,12 +106,11 @@ hardware_interface::return_type DasrobotDriveController::read(const rclcpp::Time
         return hardware_interface::return_type::OK;
     }
 
-    // ✅ Безопасный парсинг с проверкой границ
     std::stringstream ss(response.substr(2));
     std::string value;
     size_t counter = 0;
 
-    while (std::getline(ss, value, ',') && counter < JOINTS_COUNT_) {
+    while (std::getline(ss, value, ',') && counter < wheel_count_) {
         try {
             int int_value = std::stoi(value);
             hw_positions_[counter] = int_value * counts_to_rad_;
@@ -123,12 +130,12 @@ hardware_interface::return_type DasrobotDriveController::read(const rclcpp::Time
 
 hardware_interface::return_type DasrobotDriveController::write(const rclcpp::Time &, const rclcpp::Duration &) {
     std::string cmd = "v,";
-    for (size_t i = 0; i < JOINTS_COUNT_; ++i) {
+    for (size_t i = 0; i < wheel_count_; ++i) {
         double rad_s = cmd_velocities_[i];
         double rpm_double = (rad_s * 60.0) / (2.0 * M_PI);
         int rpm_int = static_cast<int>(std::round(rpm_double));  
         cmd += std::to_string(rpm_int);
-        if (i < JOINTS_COUNT_ - 1) cmd += ",";
+        if (i < wheel_count_ - 1) cmd += ",";
     }
     cmd += "\n";
 
@@ -142,11 +149,11 @@ DasrobotDriveController::~DasrobotDriveController() {
 }
 
 bool DasrobotDriveController::open_serial() {
-    serial_fd_ = open(serial_port_.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
+    serial_fd_ = open(serial_port_name_.c_str(), O_RDWR | O_NOCTTY | O_SYNC);
     if (serial_fd_ < 0) {
         RCLCPP_ERROR(rclcpp::get_logger("DasrobotDriveController"), 
                     "Failed to open serial port %s: %s", 
-                    serial_port_.c_str(), strerror(errno));
+                    serial_port_name_.c_str(), strerror(errno));
         return false;
     }
 
